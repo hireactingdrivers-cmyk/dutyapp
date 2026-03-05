@@ -3,48 +3,49 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <title>Driver Duty App</title>
+    <title>Driver Duty Pro</title>
     <style>
         body { font-family: 'Segoe UI', sans-serif; background: #f0f2f5; margin: 0; padding: 10px; }
         .app-container { max-width: 500px; margin: auto; background: white; border-radius: 20px; overflow: hidden; box-shadow: 0 10px 25px rgba(0,0,0,0.1); }
         section { padding: 20px; }
-        h2 { color: #333; font-size: 20px; margin-top: 0; border-bottom: 2px solid #eee; padding-bottom: 10px; }
-        input, textarea { width: 100%; padding: 12px; margin: 8px 0; border: 1px solid #ddd; border-radius: 8px; box-sizing: border-box; font-size: 15px; outline: none; }
-        button { width: 100%; padding: 12px; border: none; border-radius: 8px; cursor: pointer; font-size: 16px; font-weight: bold; transition: 0.3s; }
+        h2 { color: #333; font-size: 18px; margin-top: 0; border-bottom: 2px solid #eee; padding-bottom: 10px; }
+        input, textarea { width: 100%; padding: 12px; margin: 8px 0; border: 1px solid #ddd; border-radius: 8px; box-sizing: border-box; outline: none; }
+        button { width: 100%; padding: 12px; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; }
         #adminBtn { background: #333; color: white; }
         #postBtn { background: #007bff; color: white; }
-        .duty-card { background: #fff; border-left: 8px solid #007bff; padding: 15px; margin-bottom: 15px; border-radius: 12px; box-shadow: 0 4px 8px rgba(0,0,0,0.08); }
+        .duty-card { background: #fff; border-left: 5px solid #007bff; padding: 15px; margin-bottom: 10px; border-radius: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
         .driver-action { margin-top: 10px; display: flex; gap: 5px; }
-        .driver-action input { margin: 0; flex: 1; padding: 8px; }
-        .accept-btn { width: auto; padding: 8px 15px; background: #28a745; color: white; font-size: 14px; }
-        .delete-btn { background: #dc3545; color: white; padding: 5px 10px; width: auto; font-size: 12px; margin-top: 10px; }
-        .accepted-tag { color: #28a745; font-weight: bold; margin-top: 10px; display: block; border-top: 1px dashed #eee; padding-top: 5px; }
+        .accept-btn { width: auto; background: #28a745; color: white; padding: 8px 15px; }
+        .delete-btn { background: #dc3545; color: white; padding: 5px 10px; width: auto; font-size: 12px; margin-top: 5px; }
+        .history-card { border-left: 5px solid #6c757d; font-size: 14px; background: #fafafa; }
+        .accepted-tag { color: #28a745; font-weight: bold; display: block; margin-top: 5px; }
         hr { border: 0; height: 8px; background: #f0f2f5; margin: 0; }
     </style>
 </head>
 <body>
 
 <div class="app-container">
-    <section class="admin-panel">
+    <section>
         <h2>🚖 Admin Control</h2>
         <div id="adminLoginArea">
-            <input type="password" id="passInput" placeholder="Enter Admin Password">
-            <button id="adminBtn">Admin Login</button>
+            <input type="password" id="passInput" placeholder="Admin Password">
+            <button id="adminBtn">Login to Post & History</button>
         </div>
-        <div id="dutyForm" style="display:none;">
-            <p style="color:green; font-size:12px;">Admin Mode Active ✅</p>
+        <div id="adminPanel" style="display:none;">
             <input type="text" id="areaName" placeholder="Pickup Area">
             <textarea id="taskDesc" rows="2" placeholder="Duty Details"></textarea>
             <button id="postBtn">Post Duty</button>
+            <br><br>
+            <h2 style="color:red;">📜 Duty History (Admin Only)</h2>
+            <div id="historyArea"></div>
         </div>
     </section>
 
     <hr>
 
-    <section class="driver-panel">
-        <h2>📱 Duty Feed</h2>
-        <div id="notificationArea"></div>
+    <section>
+        <h2>📱 Live Duty Feed</h2>
+        <div id="feedArea"></div>
     </section>
 </div>
 
@@ -56,24 +57,18 @@
         apiKey: "AIzaSyAh2o5OHBjOkaaYB9cJu1LoJ8l8KVRcnMA",
         authDomain: "mydriverapp-1c155.firebaseapp.com",
         projectId: "mydriverapp-1c155",
-        storageBucket: "mydriverapp-1c155.firebasestorage.app",
-        messagingSenderId: "442895703776",
-        appId: "1:442895703776:web:a385f3fc74b0017f16ba85",
         databaseURL: "https://mydriverapp-1c155-default-rtdb.firebaseio.com"
     };
 
     const app = initializeApp(firebaseConfig);
     const db = getDatabase(app);
     const dutyRef = ref(db, 'duties');
-    let isAdmin = false;
 
     // Admin Login
     document.getElementById('adminBtn').addEventListener('click', () => {
         if (document.getElementById('passInput').value === "divya") {
-            isAdmin = true;
             document.getElementById('adminLoginArea').style.display = "none";
-            document.getElementById('dutyForm').style.display = "block";
-            renderAllDuties(); // Refresh to show delete buttons
+            document.getElementById('adminPanel').style.display = "block";
         } else { alert("Wrong Password!"); }
     });
 
@@ -88,56 +83,58 @@
         }
     });
 
-    // Sound
-    const playSound = () => {
-        new Audio('https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3').play().catch(() => {});
-    };
-
     // Render Logic
-    const renderDuty = (id, data) => {
-        const notifyArea = document.getElementById('notificationArea');
-        const card = document.createElement('div');
-        card.id = id;
-        card.className = 'duty-card';
+    onChildAdded(dutyRef, (snap) => {
+        const id = snap.key;
+        const data = snap.val();
         
-        let driverSection = data.acceptedBy ? 
-            `<span class="accepted-tag">✅ Accepted by: ${data.acceptedBy}</span>` : 
+        // 1. Add to Driver Feed
+        const feedCard = document.createElement('div');
+        feedCard.id = `feed_${id}`;
+        feedCard.className = 'duty-card';
+        updateFeedUI(feedCard, id, data);
+        document.getElementById('feedArea').prepend(feedCard);
+
+        // 2. Add to Admin History
+        const histCard = document.createElement('div');
+        histCard.id = `hist_${id}`;
+        histCard.className = 'duty-card history-card';
+        updateHistoryUI(histCard, id, data);
+        document.getElementById('historyArea').prepend(histCard);
+        
+        new Audio('https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3').play().catch(()=>{});
+    });
+
+    function updateFeedUI(card, id, data) {
+        let actionHtml = data.acceptedBy ? 
+            `<span class="accepted-tag">✅ Accepted: ${data.acceptedBy}</span>` : 
             `<div class="driver-action">
-                <input type="text" id="name_${id}" placeholder="Your Name">
+                <input type="text" id="name_${id}" placeholder="Your Name" style="margin:0; flex:1; padding:8px;">
                 <button class="accept-btn" onclick="window.acceptDuty('${id}')">Accept</button>
             </div>`;
+        card.innerHTML = `<strong>📍 ${data.area}</strong><p style="margin:5px 0;">${data.description}</p>${actionHtml}`;
+    }
 
-        let deleteBtn = isAdmin ? `<button class="delete-btn" onclick="window.deleteDuty('${id}')">🗑️ Delete Duty</button>` : "";
+    function updateHistoryUI(card, id, data) {
+        let status = data.acceptedBy ? `<span style="color:green;">(Accepted by ${data.acceptedBy})</span>` : `<span style="color:orange;">(Pending)</span>`;
+        card.innerHTML = `<strong>${data.area}</strong> - ${status} <br>
+                          <button class="delete-btn" onclick="window.deleteDuty('${id}')">🗑️ Delete</button>`;
+    }
 
-        card.innerHTML = `
-            <p style="margin:0; font-size:18px; color:#007bff;"><strong>📍 ${data.area}</strong></p>
-            <p style="margin:10px 0; color:#444;">${data.description}</p>
-            <div id="status_${id}">${driverSection}</div>
-            ${deleteBtn}
-        `;
-        notifyArea.prepend(card);
-    };
+    onChildRemoved(dutyRef, (snap) => {
+        document.getElementById(`feed_${snap.key}`)?.remove();
+        document.getElementById(`hist_${snap.key}`)?.remove();
+    });
 
-    // Firebase Listeners
-    onChildAdded(dutyRef, (snap) => { renderDuty(snap.key, snap.val()); playSound(); });
-    onChildRemoved(dutyRef, (snap) => { document.getElementById(snap.key)?.remove(); });
-
-    // Global Functions for buttons
     window.acceptDuty = (id) => {
         const name = document.getElementById(`name_${id}`).value;
         if (name) {
             update(ref(db, `duties/${id}`), { acceptedBy: name });
-            document.getElementById(`status_${id}`).innerHTML = `<span class="accepted-tag">✅ Accepted by: ${name}</span>`;
-        } else { alert("Please enter your name!"); }
+        } else { alert("Enter your name!"); }
     };
 
     window.deleteDuty = (id) => {
-        if(confirm("Delete this duty?")) { remove(ref(db, `duties/${id}`)); }
-    };
-
-    const renderAllDuties = () => {
-        document.getElementById('notificationArea').innerHTML = "";
-        // This is a simple way, in real apps we use onValue
+        if(confirm("Delete this duty history?")) { remove(ref(db, `duties/${id}`)); }
     };
 </script>
 </body>
