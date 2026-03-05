@@ -4,64 +4,53 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="theme-color" content="#007bff">
     <title>Driver Duty App</title>
-
     <style>
-        /* CSS SECTION */
-        body { font-family: 'Segoe UI', sans-serif; background: #f0f2f5; margin: 0; padding: 10px; padding-bottom: 50px; }
+        body { font-family: 'Segoe UI', sans-serif; background: #f0f2f5; margin: 0; padding: 10px; }
         .app-container { max-width: 500px; margin: auto; background: white; border-radius: 20px; overflow: hidden; box-shadow: 0 10px 25px rgba(0,0,0,0.1); }
         section { padding: 20px; }
-        h2 { color: #333; font-size: 22px; margin-top: 0; border-bottom: 2px solid #eee; padding-bottom: 10px; }
-        input, textarea { width: 100%; padding: 14px; margin: 10px 0; border: 1px solid #ddd; border-radius: 10px; box-sizing: border-box; font-size: 16px; outline: none; }
-        input:focus { border-color: #007bff; }
-        button { width: 100%; padding: 14px; border: none; border-radius: 10px; cursor: pointer; font-size: 16px; font-weight: bold; transition: 0.3s; margin-top: 5px; }
+        h2 { color: #333; font-size: 20px; margin-top: 0; border-bottom: 2px solid #eee; padding-bottom: 10px; }
+        input, textarea { width: 100%; padding: 12px; margin: 8px 0; border: 1px solid #ddd; border-radius: 8px; box-sizing: border-box; font-size: 15px; outline: none; }
+        button { width: 100%; padding: 12px; border: none; border-radius: 8px; cursor: pointer; font-size: 16px; font-weight: bold; transition: 0.3s; }
         #adminBtn { background: #333; color: white; }
         #postBtn { background: #007bff; color: white; }
-        .duty-card { background: #fff; border-left: 8px solid #007bff; padding: 15px; margin-bottom: 15px; border-radius: 12px; box-shadow: 0 4px 8px rgba(0,0,0,0.08); animation: slideUp 0.4s ease-out; }
-        @keyframes slideUp { from { transform: translateY(30px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
-        .driver-tag { margin-top: 10px; padding-top: 10px; border-top: 1px dashed #ddd; color: #28a745; font-size: 15px; }
-        .empty-msg { text-align: center; color: #999; padding: 20px; }
-        hr { border: 0; height: 10px; background: #f0f2f5; margin: 0; }
-        .install-banner { background: #ffc107; padding: 10px; text-align: center; font-size: 13px; font-weight: bold; display: none; }
+        .duty-card { background: #fff; border-left: 8px solid #007bff; padding: 15px; margin-bottom: 15px; border-radius: 12px; box-shadow: 0 4px 8px rgba(0,0,0,0.08); }
+        .driver-action { margin-top: 10px; display: flex; gap: 5px; }
+        .driver-action input { margin: 0; flex: 1; padding: 8px; }
+        .accept-btn { width: auto; padding: 8px 15px; background: #28a745; color: white; font-size: 14px; }
+        .delete-btn { background: #dc3545; color: white; padding: 5px 10px; width: auto; font-size: 12px; margin-top: 10px; }
+        .accepted-tag { color: #28a745; font-weight: bold; margin-top: 10px; display: block; border-top: 1px dashed #eee; padding-top: 5px; }
+        hr { border: 0; height: 8px; background: #f0f2f5; margin: 0; }
     </style>
 </head>
 <body>
 
 <div class="app-container">
-    <div id="installBanner" class="install-banner">Add to Home Screen for better experience!</div>
-
     <section class="admin-panel">
         <h2>🚖 Admin Control</h2>
         <div id="adminLoginArea">
             <input type="password" id="passInput" placeholder="Enter Admin Password">
             <button id="adminBtn">Admin Login</button>
         </div>
-
         <div id="dutyForm" style="display:none;">
-            <p style="color:green; font-size:13px;">Logged in as Admin ✅</p>
-            <input type="text" id="areaName" placeholder="Pickup Area (e.g. Adyar)">
-            <textarea id="taskDesc" rows="3" placeholder="Duty Description"></textarea>
-            <input type="text" id="assignDriver" placeholder="Assign Driver Name (Optional)">
-            <button id="postBtn">Post Duty Now</button>
+            <p style="color:green; font-size:12px;">Admin Mode Active ✅</p>
+            <input type="text" id="areaName" placeholder="Pickup Area">
+            <textarea id="taskDesc" rows="2" placeholder="Duty Details"></textarea>
+            <button id="postBtn">Post Duty</button>
         </div>
     </section>
 
     <hr>
 
     <section class="driver-panel">
-        <h2>📱 Live Duty Feed</h2>
-        <p style="font-size:12px; color:#666; text-align:center; margin-bottom:15px;">⚠️ Tap anywhere to enable duty sounds!</p>
-        <div id="notificationArea">
-            <p class="empty-msg">Waiting for new duties...</p>
-        </div>
+        <h2>📱 Duty Feed</h2>
+        <div id="notificationArea"></div>
     </section>
 </div>
 
 <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-    import { getDatabase, ref, push, onChildAdded } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
+    import { getDatabase, ref, push, onChildAdded, onChildRemoved, update, remove } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
 
     const firebaseConfig = {
         apiKey: "AIzaSyAh2o5OHBjOkaaYB9cJu1LoJ8l8KVRcnMA",
@@ -76,69 +65,80 @@
     const app = initializeApp(firebaseConfig);
     const db = getDatabase(app);
     const dutyRef = ref(db, 'duties');
+    let isAdmin = false;
 
-    // Admin Login Logic
+    // Admin Login
     document.getElementById('adminBtn').addEventListener('click', () => {
         if (document.getElementById('passInput').value === "divya") {
+            isAdmin = true;
             document.getElementById('adminLoginArea').style.display = "none";
             document.getElementById('dutyForm').style.display = "block";
+            renderAllDuties(); // Refresh to show delete buttons
         } else { alert("Wrong Password!"); }
     });
 
-    // Post Duty Logic
+    // Post Duty
     document.getElementById('postBtn').addEventListener('click', () => {
         const area = document.getElementById('areaName').value;
         const desc = document.getElementById('taskDesc').value;
-        const driver = document.getElementById('assignDriver').value;
-
         if (area && desc) {
-            push(dutyRef, {
-                area: area,
-                description: desc,
-                assignedDriver: driver || "Pending",
-                timestamp: Date.now()
-            }).then(() => {
-                alert("Duty Posted!");
-                document.getElementById('areaName').value = "";
-                document.getElementById('taskDesc').value = "";
-                document.getElementById('assignDriver').value = "";
-            });
-        } else { alert("Please fill mandatory fields!"); }
+            push(dutyRef, { area, description: desc, acceptedBy: "" });
+            document.getElementById('areaName').value = "";
+            document.getElementById('taskDesc').value = "";
+        }
     });
 
-    // Sound & Notification Logic
-    const playLoudSound = () => {
-        const audio = new Audio('https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3');
-        audio.play().catch(() => console.log("Sound ready after touch"));
+    // Sound
+    const playSound = () => {
+        new Audio('https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3').play().catch(() => {});
     };
 
-    // Real-time Update
-    onChildAdded(dutyRef, (snapshot) => {
-        const duty = snapshot.val();
+    // Render Logic
+    const renderDuty = (id, data) => {
         const notifyArea = document.getElementById('notificationArea');
+        const card = document.createElement('div');
+        card.id = id;
+        card.className = 'duty-card';
         
-        if(notifyArea.querySelector('.empty-msg')) notifyArea.querySelector('.empty-msg').remove();
+        let driverSection = data.acceptedBy ? 
+            `<span class="accepted-tag">✅ Accepted by: ${data.acceptedBy}</span>` : 
+            `<div class="driver-action">
+                <input type="text" id="name_${id}" placeholder="Your Name">
+                <button class="accept-btn" onclick="window.acceptDuty('${id}')">Accept</button>
+            </div>`;
 
-        playLoudSound();
+        let deleteBtn = isAdmin ? `<button class="delete-btn" onclick="window.deleteDuty('${id}')">🗑️ Delete Duty</button>` : "";
 
-        const dutyHTML = `
-            <div class="duty-card">
-                <p style="margin:0; font-size:18px; color:#007bff;"><strong>📍 ${duty.area}</strong></p>
-                <p style="margin:10px 0; color:#444; line-height:1.4;">${duty.description}</p>
-                <div class="driver-tag">
-                    🚖 Assigned To: <span style="color:#333;">${duty.assignedDriver}</span>
-                </div>
-            </div>
+        card.innerHTML = `
+            <p style="margin:0; font-size:18px; color:#007bff;"><strong>📍 ${data.area}</strong></p>
+            <p style="margin:10px 0; color:#444;">${data.description}</p>
+            <div id="status_${id}">${driverSection}</div>
+            ${deleteBtn}
         `;
-        notifyArea.insertAdjacentHTML('afterbegin', dutyHTML);
-    });
+        notifyArea.prepend(card);
+    };
 
-    // Simple PWA Banner
-    window.addEventListener('beforeinstallprompt', (e) => {
-        e.preventDefault();
-        document.getElementById('installBanner').style.display = 'block';
-    });
+    // Firebase Listeners
+    onChildAdded(dutyRef, (snap) => { renderDuty(snap.key, snap.val()); playSound(); });
+    onChildRemoved(dutyRef, (snap) => { document.getElementById(snap.key)?.remove(); });
+
+    // Global Functions for buttons
+    window.acceptDuty = (id) => {
+        const name = document.getElementById(`name_${id}`).value;
+        if (name) {
+            update(ref(db, `duties/${id}`), { acceptedBy: name });
+            document.getElementById(`status_${id}`).innerHTML = `<span class="accepted-tag">✅ Accepted by: ${name}</span>`;
+        } else { alert("Please enter your name!"); }
+    };
+
+    window.deleteDuty = (id) => {
+        if(confirm("Delete this duty?")) { remove(ref(db, `duties/${id}`)); }
+    };
+
+    const renderAllDuties = () => {
+        document.getElementById('notificationArea').innerHTML = "";
+        // This is a simple way, in real apps we use onValue
+    };
 </script>
-
 </body>
 </html>
