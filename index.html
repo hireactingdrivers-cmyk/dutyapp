@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="theme-color" content="#007bff">
+    <title>Driver Duty App</title>
+
+    <style>
+        /* CSS SECTION */
+        body { font-family: 'Segoe UI', sans-serif; background: #f0f2f5; margin: 0; padding: 10px; padding-bottom: 50px; }
+        .app-container { max-width: 500px; margin: auto; background: white; border-radius: 20px; overflow: hidden; box-shadow: 0 10px 25px rgba(0,0,0,0.1); }
+        section { padding: 20px; }
+        h2 { color: #333; font-size: 22px; margin-top: 0; border-bottom: 2px solid #eee; padding-bottom: 10px; }
+        input, textarea { width: 100%; padding: 14px; margin: 10px 0; border: 1px solid #ddd; border-radius: 10px; box-sizing: border-box; font-size: 16px; outline: none; }
+        input:focus { border-color: #007bff; }
+        button { width: 100%; padding: 14px; border: none; border-radius: 10px; cursor: pointer; font-size: 16px; font-weight: bold; transition: 0.3s; margin-top: 5px; }
+        #adminBtn { background: #333; color: white; }
+        #postBtn { background: #007bff; color: white; }
+        .duty-card { background: #fff; border-left: 8px solid #007bff; padding: 15px; margin-bottom: 15px; border-radius: 12px; box-shadow: 0 4px 8px rgba(0,0,0,0.08); animation: slideUp 0.4s ease-out; }
+        @keyframes slideUp { from { transform: translateY(30px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+        .driver-tag { margin-top: 10px; padding-top: 10px; border-top: 1px dashed #ddd; color: #28a745; font-size: 15px; }
+        .empty-msg { text-align: center; color: #999; padding: 20px; }
+        hr { border: 0; height: 10px; background: #f0f2f5; margin: 0; }
+        .install-banner { background: #ffc107; padding: 10px; text-align: center; font-size: 13px; font-weight: bold; display: none; }
+    </style>
+</head>
+<body>
+
+<div class="app-container">
+    <div id="installBanner" class="install-banner">Add to Home Screen for better experience!</div>
+
+    <section class="admin-panel">
+        <h2>🚖 Admin Control</h2>
+        <div id="adminLoginArea">
+            <input type="password" id="passInput" placeholder="Enter Admin Password">
+            <button id="adminBtn">Admin Login</button>
+        </div>
+
+        <div id="dutyForm" style="display:none;">
+            <p style="color:green; font-size:13px;">Logged in as Admin ✅</p>
+            <input type="text" id="areaName" placeholder="Pickup Area (e.g. Adyar)">
+            <textarea id="taskDesc" rows="3" placeholder="Duty Description"></textarea>
+            <input type="text" id="assignDriver" placeholder="Assign Driver Name (Optional)">
+            <button id="postBtn">Post Duty Now</button>
+        </div>
+    </section>
+
+    <hr>
+
+    <section class="driver-panel">
+        <h2>📱 Live Duty Feed</h2>
+        <p style="font-size:12px; color:#666; text-align:center; margin-bottom:15px;">⚠️ Tap anywhere to enable duty sounds!</p>
+        <div id="notificationArea">
+            <p class="empty-msg">Waiting for new duties...</p>
+        </div>
+    </section>
+</div>
+
+<script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+    import { getDatabase, ref, push, onChildAdded } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
+
+    const firebaseConfig = {
+        apiKey: "AIzaSyAh2o5OHBjOkaaYB9cJu1LoJ8l8KVRcnMA",
+        authDomain: "mydriverapp-1c155.firebaseapp.com",
+        projectId: "mydriverapp-1c155",
+        storageBucket: "mydriverapp-1c155.firebasestorage.app",
+        messagingSenderId: "442895703776",
+        appId: "1:442895703776:web:a385f3fc74b0017f16ba85",
+        databaseURL: "https://mydriverapp-1c155-default-rtdb.firebaseio.com"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getDatabase(app);
+    const dutyRef = ref(db, 'duties');
+
+    // Admin Login Logic
+    document.getElementById('adminBtn').addEventListener('click', () => {
+        if (document.getElementById('passInput').value === "divya") {
+            document.getElementById('adminLoginArea').style.display = "none";
+            document.getElementById('dutyForm').style.display = "block";
+        } else { alert("Wrong Password!"); }
+    });
+
+    // Post Duty Logic
+    document.getElementById('postBtn').addEventListener('click', () => {
+        const area = document.getElementById('areaName').value;
+        const desc = document.getElementById('taskDesc').value;
+        const driver = document.getElementById('assignDriver').value;
+
+        if (area && desc) {
+            push(dutyRef, {
+                area: area,
+                description: desc,
+                assignedDriver: driver || "Pending",
+                timestamp: Date.now()
+            }).then(() => {
+                alert("Duty Posted!");
+                document.getElementById('areaName').value = "";
+                document.getElementById('taskDesc').value = "";
+                document.getElementById('assignDriver').value = "";
+            });
+        } else { alert("Please fill mandatory fields!"); }
+    });
+
+    // Sound & Notification Logic
+    const playLoudSound = () => {
+        const audio = new Audio('https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3');
+        audio.play().catch(() => console.log("Sound ready after touch"));
+    };
+
+    // Real-time Update
+    onChildAdded(dutyRef, (snapshot) => {
+        const duty = snapshot.val();
+        const notifyArea = document.getElementById('notificationArea');
+        
+        if(notifyArea.querySelector('.empty-msg')) notifyArea.querySelector('.empty-msg').remove();
+
+        playLoudSound();
+
+        const dutyHTML = `
+            <div class="duty-card">
+                <p style="margin:0; font-size:18px; color:#007bff;"><strong>📍 ${duty.area}</strong></p>
+                <p style="margin:10px 0; color:#444; line-height:1.4;">${duty.description}</p>
+                <div class="driver-tag">
+                    🚖 Assigned To: <span style="color:#333;">${duty.assignedDriver}</span>
+                </div>
+            </div>
+        `;
+        notifyArea.insertAdjacentHTML('afterbegin', dutyHTML);
+    });
+
+    // Simple PWA Banner
+    window.addEventListener('beforeinstallprompt', (e) => {
+        e.preventDefault();
+        document.getElementById('installBanner').style.display = 'block';
+    });
+</script>
+
+</body>
+</html>
+
