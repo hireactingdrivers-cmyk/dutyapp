@@ -3,16 +3,18 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Driver Duty Pro - Sound Fixed</title>
+    <title>Driver Duty Pro - WhatsApp Share</title>
     <style>
         body { font-family: 'Segoe UI', sans-serif; background: #f0f2f5; margin: 0; padding: 10px; }
         .app-container { max-width: 500px; margin: auto; background: white; border-radius: 20px; overflow: hidden; box-shadow: 0 10px 25px rgba(0,0,0,0.1); }
         section { padding: 20px; }
         h2 { color: #333; font-size: 18px; margin-top: 0; border-bottom: 2px solid #eee; padding-bottom: 10px; }
         input, textarea { width: 100%; padding: 12px; margin: 8px 0; border: 1px solid #ddd; border-radius: 8px; box-sizing: border-box; outline: none; }
-        button { width: 100%; padding: 12px; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; }
+        button { width: 100%; padding: 12px; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; transition: 0.3s; }
+        
         .ready-card { background: #e0f2fe; border: 2px solid #0ea5e9; padding: 15px; border-radius: 12px; margin-bottom: 15px; text-align: center; }
         .ready-btn { background: #25d366; color: white; margin-top: 10px; }
+        
         #adminBtn { background: #333; color: white; }
         #postBtn { background: #007bff; color: white; }
         .duty-card { background: #fff; border-left: 5px solid #007bff; padding: 15px; margin-bottom: 10px; border-radius: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
@@ -23,6 +25,7 @@
         .accepted-tag { color: #28a745; font-weight: bold; display: block; margin-top: 5px; }
         hr { border: 0; height: 8px; background: #f0f2f5; margin: 0; }
         #soundStatus { font-size: 10px; color: green; margin-top: 5px; display: none; }
+        .wa-share-btn { background: #25d366; color: white; margin-top: 8px; width: 100%; }
     </style>
 </head>
 <body>
@@ -32,10 +35,10 @@
         <h2>🚖 Admin Control</h2>
         <div id="adminLoginArea">
             <input type="password" id="passInput" placeholder="Admin Password">
-            <button id="adminBtn">Login to Post (Enables Sound)</button>
+            <button id="adminBtn">Login (Enables Sound)</button>
         </div>
         <div id="adminPanel" style="display:none;">
-            <div id="soundStatus">🔊 Sound Notification Active</div>
+            <div id="soundStatus">🔊 Sound Alert Active</div>
             <input type="text" id="areaName" placeholder="Pickup Area">
             <textarea id="taskDesc" rows="2" placeholder="Duty Details"></textarea>
             <button id="postBtn">Post Duty</button>
@@ -64,7 +67,7 @@
 
 <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-    import { getDatabase, ref, push, onChildAdded, onChildRemoved, update, remove } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
+    import { getDatabase, ref, push, onChildAdded, onChildChanged, onChildRemoved, update, remove } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
 
     const firebaseConfig = {
         apiKey: "AIzaSyAh2o5OHBjOkaaYB9cJu1LoJ8l8KVRcnMA",
@@ -77,33 +80,29 @@
     const db = getDatabase(app);
     const dutyRef = ref(db, 'duties');
     const audio = document.getElementById('notifSound');
+    const myWhatsApp = "919500005402";
 
-    // Admin Login + Sound Unlock
+    // Admin Unlock
     document.getElementById('adminBtn').addEventListener('click', () => {
         if (document.getElementById('passInput').value === "divya") {
             document.getElementById('adminLoginArea').style.display = "none";
             document.getElementById('adminPanel').style.display = "block";
             document.getElementById('soundStatus').style.display = "block";
-            
-            // Critical Fix: Play silent sound to "unlock" the audio context
-            audio.play().then(() => {
-                audio.pause();
-                audio.currentTime = 0;
-            }).catch(e => console.log("Sound unlock failed", e));
+            audio.play().then(() => { audio.pause(); audio.currentTime = 0; });
         } else { alert("Wrong Password!"); }
     });
 
-    // WhatsApp logic
+    // Inform Ready
     window.informReady = () => {
         const name = document.getElementById('readyName').value;
         const loc = document.getElementById('readyLoc').value;
-        const myWhatsApp = "919500005402";
         if (name && loc) {
-            const msg = `🚖 *DRIVER READY ALERT*%0A%0A*Name:* ${name}%0A*Location:* ${loc}`;
+            const msg = `🚖 *DRIVER READY*%0A*Name:* ${name}%0A*Loc:* ${loc}`;
             window.open(`https://wa.me/${myWhatsApp}?text=${msg}`, '_blank');
-        } else { alert("Enter Name and Location!"); }
+        } else { alert("Enter Name & Location"); }
     };
 
+    // Post Duty
     document.getElementById('postBtn').addEventListener('click', () => {
         const area = document.getElementById('areaName').value;
         const desc = document.getElementById('taskDesc').value;
@@ -114,37 +113,51 @@
         }
     });
 
-    // Play Sound only for NEW duties
-    onChildAdded(dutyRef, (snap) => {
+    // Render Logic
+    onChildAdded(dutyRef, (snap) => renderDuty(snap));
+    onChildChanged(dutyRef, (snap) => renderDuty(snap));
+
+    function renderDuty(snap) {
         const id = snap.key, data = snap.val();
         
-        // Prevent sound for old duties already in DB on page load
-        const dutyTime = data.timestamp || 0;
-        const now = Date.now();
-        if (now - dutyTime < 10000) { // If duty was added in last 10 seconds
-            audio.play().catch(e => console.log("Auto-play blocked", e));
+        // Feed UI
+        let feedCard = document.getElementById(`feed_${id}`);
+        if(!feedCard) {
+            feedCard = document.createElement('div');
+            feedCard.id = `feed_${id}`;
+            feedCard.className = 'duty-card';
+            document.getElementById('feedArea').prepend(feedCard);
+            if (Date.now() - (data.timestamp || 0) < 10000) { audio.play().catch(e => {}); }
         }
-
-        const feedCard = document.createElement('div');
-        feedCard.id = `feed_${id}`;
-        feedCard.className = 'duty-card';
         updateFeedUI(feedCard, id, data);
-        document.getElementById('feedArea').prepend(feedCard);
 
-        const histCard = document.createElement('div');
-        histCard.id = `hist_${id}`;
-        histCard.className = 'duty-card history-card';
+        // History UI
+        let histCard = document.getElementById(`hist_${id}`);
+        if(!histCard) {
+            histCard = document.createElement('div');
+            histCard.id = `hist_${id}`;
+            histCard.className = 'duty-card history-card';
+            document.getElementById('historyArea').prepend(histCard);
+        }
         updateHistoryUI(histCard, id, data);
-        document.getElementById('historyArea').prepend(histCard);
-    });
+    }
 
     function updateFeedUI(card, id, data) {
-        let actionHtml = data.acceptedBy ? 
-            `<span class="accepted-tag">✅ Accepted: ${data.acceptedBy}</span>` : 
-            `<div class="driver-action">
-                <input type="text" id="name_${id}" placeholder="Your Name" style="margin:0; flex:1; padding:8px;">
-                <button class="accept-btn" onclick="window.acceptDuty('${id}')">Accept</button>
-            </div>`;
+        let actionHtml = "";
+        if (data.acceptedBy) {
+            const msg = `🚖 *DUTY ACCEPTED*%0A*Driver:* ${data.acceptedBy}%0A*Area:* ${data.area}`;
+            actionHtml = `
+                <span class="accepted-tag">✅ Accepted: ${data.acceptedBy}</span>
+                <button class="wa-share-btn" onclick="window.open('https://wa.me/${myWhatsApp}?text=${encodeURIComponent(msg)}', '_blank')">
+                    SHARE TO WHATSAPP
+                </button>`;
+        } else {
+            actionHtml = `
+                <div class="driver-action">
+                    <input type="text" id="name_${id}" placeholder="Your Name" style="margin:0; flex:1; padding:8px;">
+                    <button class="accept-btn" onclick="window.acceptDuty('${id}')">Accept</button>
+                </div>`;
+        }
         card.innerHTML = `<strong>📍 ${data.area}</strong><p style="margin:5px 0;">${data.description}</p>${actionHtml}`;
     }
 
@@ -165,9 +178,8 @@
         else { alert("Enter your name!"); }
     };
 
-    window.deleteDuty = (id) => {
-        if(confirm("Delete this?")) { remove(ref(db, `duties/${id}`)); }
-    };
+    window.deleteDuty = (id) => { if(confirm("Delete this?")) { remove(ref(db, `duties/${id}`)); } };
 </script>
 </body>
 </html>
+
