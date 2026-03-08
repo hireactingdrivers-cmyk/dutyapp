@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Driver Duty Pro - Telegram Alerts</title>
+    <title>Driver Duty Pro - Final</title>
     <style>
         body { font-family: 'Segoe UI', sans-serif; background: #f0f2f5; margin: 0; padding: 10px; }
         .app-container { max-width: 500px; margin: auto; background: white; border-radius: 20px; overflow: hidden; box-shadow: 0 10px 25px rgba(0,0,0,0.1); }
@@ -80,12 +80,13 @@
     const audio = document.getElementById('notifSound');
     const myWhatsApp = "919500005402";
 
-    // 🔔 TELEGRAM SETTINGS (Corrected with your details)
+    // 🔔 YOUR TELEGRAM DETAILS
     const botToken = "8385530049:AAEe6TtUyK7lcjlgz0vzr8u3on61MY3AABo";
     const groupChatId = "-1003800327361"; 
-    const appLink = "https://yourusername.github.io/your-repo-name/"; // <-- Inga unga GitHub link-ai podunga!
+    // MUKKIYAM: Change this to your actual GitHub URL
+    const appLink = window.location.href; 
 
-    // Admin Unlock
+    // Admin Unlock - Password is "divya"
     document.getElementById('adminBtn').addEventListener('click', () => {
         if (document.getElementById('passInput').value === "divya") {
             document.getElementById('adminLoginArea').style.display = "none";
@@ -100,27 +101,22 @@
         const area = document.getElementById('areaName').value;
         const desc = document.getElementById('taskDesc').value;
         if (area && desc) {
-            // 1. Save to Firebase
             push(dutyRef, { area, description: desc, acceptedBy: "", timestamp: Date.now() });
 
-            // 2. Send Telegram Alert
             const msg = `🚖 *NEW DUTY ALERT*%0A%0A📍 *Area:* ${area}%0A📝 *Details:* ${desc}%0A%0A📲 *Accept Here:*%0A${appLink}`;
             const teleUrl = `https://api.telegram.org/bot${botToken}/sendMessage?chat_id=${groupChatId}&text=${msg}&parse_mode=Markdown`;
             
             try {
                 await fetch(teleUrl);
                 alert("Duty Posted & Telegram Alert Sent!");
-            } catch (e) { 
-                console.error("Telegram Failed", e); 
-                alert("Firebase updated, but Telegram failed. Check Bot Admin status!");
-            }
+            } catch (e) { console.error("Telegram Failed", e); }
 
             document.getElementById('areaName').value = "";
             document.getElementById('taskDesc').value = "";
         }
     });
 
-    // --- (Rest of the logic for rendering, accepting, deleting duties) ---
+    // --- RENDERING LOGIC ---
     onChildAdded(dutyRef, (snap) => renderDuty(snap));
     onChildChanged(dutyRef, (snap) => renderDuty(snap));
 
