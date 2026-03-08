@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Driver Duty Pro - WhatsApp Share</title>
+    <title>Driver Duty Pro - Telegram Alerts</title>
     <style>
         body { font-family: 'Segoe UI', sans-serif; background: #f0f2f5; margin: 0; padding: 10px; }
         .app-container { max-width: 500px; margin: auto; background: white; border-radius: 20px; overflow: hidden; box-shadow: 0 10px 25px rgba(0,0,0,0.1); }
@@ -11,10 +11,8 @@
         h2 { color: #333; font-size: 18px; margin-top: 0; border-bottom: 2px solid #eee; padding-bottom: 10px; }
         input, textarea { width: 100%; padding: 12px; margin: 8px 0; border: 1px solid #ddd; border-radius: 8px; box-sizing: border-box; outline: none; }
         button { width: 100%; padding: 12px; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; transition: 0.3s; }
-        
         .ready-card { background: #e0f2fe; border: 2px solid #0ea5e9; padding: 15px; border-radius: 12px; margin-bottom: 15px; text-align: center; }
         .ready-btn { background: #25d366; color: white; margin-top: 10px; }
-        
         #adminBtn { background: #333; color: white; }
         #postBtn { background: #007bff; color: white; }
         .duty-card { background: #fff; border-left: 5px solid #007bff; padding: 15px; margin-bottom: 10px; border-radius: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
@@ -41,7 +39,7 @@
             <div id="soundStatus">🔊 Sound Alert Active</div>
             <input type="text" id="areaName" placeholder="Pickup Area">
             <textarea id="taskDesc" rows="2" placeholder="Duty Details"></textarea>
-            <button id="postBtn">Post Duty</button>
+            <button id="postBtn">Post Duty & Alert Telegram</button>
             <br><br>
             <h2 style="color:red;">📜 Duty History</h2>
             <div id="historyArea"></div>
@@ -82,45 +80,52 @@
     const audio = document.getElementById('notifSound');
     const myWhatsApp = "919500005402";
 
+    // 🔔 TELEGRAM SETTINGS (Corrected with your details)
+    const botToken = "8385530049:AAEe6TtUyK7lcjlgz0vzr8u3on61MY3AABo";
+    const groupChatId = "-1003800327361"; 
+    const appLink = "https://yourusername.github.io/your-repo-name/"; // <-- Inga unga GitHub link-ai podunga!
+
     // Admin Unlock
     document.getElementById('adminBtn').addEventListener('click', () => {
         if (document.getElementById('passInput').value === "divya") {
             document.getElementById('adminLoginArea').style.display = "none";
             document.getElementById('adminPanel').style.display = "block";
             document.getElementById('soundStatus').style.display = "block";
-            audio.play().then(() => { audio.pause(); audio.currentTime = 0; });
+            audio.play().then(() => { audio.pause(); audio.currentTime = 0; }).catch(e => {});
         } else { alert("Wrong Password!"); }
     });
 
-    // Inform Ready
-    window.informReady = () => {
-        const name = document.getElementById('readyName').value;
-        const loc = document.getElementById('readyLoc').value;
-        if (name && loc) {
-            const msg = `🚖 *DRIVER READY*%0A*Name:* ${name}%0A*Loc:* ${loc}`;
-            window.open(`https://wa.me/${myWhatsApp}?text=${msg}`, '_blank');
-        } else { alert("Enter Name & Location"); }
-    };
-
-    // Post Duty
-    document.getElementById('postBtn').addEventListener('click', () => {
+    // Post Duty Logic + Telegram Alert
+    document.getElementById('postBtn').addEventListener('click', async () => {
         const area = document.getElementById('areaName').value;
         const desc = document.getElementById('taskDesc').value;
         if (area && desc) {
+            // 1. Save to Firebase
             push(dutyRef, { area, description: desc, acceptedBy: "", timestamp: Date.now() });
+
+            // 2. Send Telegram Alert
+            const msg = `🚖 *NEW DUTY ALERT*%0A%0A📍 *Area:* ${area}%0A📝 *Details:* ${desc}%0A%0A📲 *Accept Here:*%0A${appLink}`;
+            const teleUrl = `https://api.telegram.org/bot${botToken}/sendMessage?chat_id=${groupChatId}&text=${msg}&parse_mode=Markdown`;
+            
+            try {
+                await fetch(teleUrl);
+                alert("Duty Posted & Telegram Alert Sent!");
+            } catch (e) { 
+                console.error("Telegram Failed", e); 
+                alert("Firebase updated, but Telegram failed. Check Bot Admin status!");
+            }
+
             document.getElementById('areaName').value = "";
             document.getElementById('taskDesc').value = "";
         }
     });
 
-    // Render Logic
+    // --- (Rest of the logic for rendering, accepting, deleting duties) ---
     onChildAdded(dutyRef, (snap) => renderDuty(snap));
     onChildChanged(dutyRef, (snap) => renderDuty(snap));
 
     function renderDuty(snap) {
         const id = snap.key, data = snap.val();
-        
-        // Feed UI
         let feedCard = document.getElementById(`feed_${id}`);
         if(!feedCard) {
             feedCard = document.createElement('div');
@@ -131,7 +136,6 @@
         }
         updateFeedUI(feedCard, id, data);
 
-        // History UI
         let histCard = document.getElementById(`hist_${id}`);
         if(!histCard) {
             histCard = document.createElement('div');
@@ -145,10 +149,10 @@
     function updateFeedUI(card, id, data) {
         let actionHtml = "";
         if (data.acceptedBy) {
-            const msg = `🚖 *DUTY ACCEPTED*%0A*Driver:* ${data.acceptedBy}%0A*Area:* ${data.area}`;
+            const waMsg = `🚖 *DUTY ACCEPTED*%0A*Driver:* ${data.acceptedBy}%0A*Area:* ${data.area}`;
             actionHtml = `
                 <span class="accepted-tag">✅ Accepted: ${data.acceptedBy}</span>
-                <button class="wa-share-btn" onclick="window.open('https://wa.me/${myWhatsApp}?text=${encodeURIComponent(msg)}', '_blank')">
+                <button class="wa-share-btn" onclick="window.open('https://wa.me/${myWhatsApp}?text=${encodeURIComponent(waMsg)}', '_blank')">
                     SHARE TO WHATSAPP
                 </button>`;
         } else {
@@ -178,7 +182,16 @@
         else { alert("Enter your name!"); }
     };
 
-    window.deleteDuty = (id) => { if(confirm("Delete this?")) { remove(ref(db, `duties/${id}`)); } };
+    window.deleteDuty = (id) => { if(confirm("Delete?")) { remove(ref(db, `duties/${id}`)); } };
+
+    window.informReady = () => {
+        const name = document.getElementById('readyName').value;
+        const loc = document.getElementById('readyLoc').value;
+        if (name && loc) {
+            const msg = `🚖 *DRIVER READY*%0A*Name:* ${name}%0A*Loc:* ${loc}`;
+            window.open(`https://wa.me/${myWhatsApp}?text=${msg}`, '_blank');
+        } else { alert("Enter Name & Location"); }
+    };
 </script>
 </body>
 </html>
