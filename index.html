@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Blossom Driver Pro</title>
+    <title>Driver Duty Pro</title>
     <style>
         body { 
             font-family: 'Segoe UI', sans-serif; 
@@ -20,7 +20,6 @@
         }
         section { padding: 25px; }
         
-        /* Selection Buttons */
         .role-btn-container { 
             margin-top: 50px; display: flex; flex-direction: column; gap: 30px; align-items: center;
         }
@@ -34,7 +33,6 @@
         #goToAdmin { background: #334155; }
         #goToDriver { background: #059669; }
 
-        /* General UI */
         input, textarea { 
             width: 100%; padding: 15px; margin: 10px 0; border-radius: 12px; 
             border: none; background: #334155; color: white; font-size: 16px;
@@ -56,7 +54,7 @@
 
 <div class="app-container">
     <div id="selectionPage">
-        <h1 style="text-align:center; margin-top:60px;">Blossom Drivers</h1>
+        <h1 style="text-align:center; margin-top:60px;">Driver Duty Pro</h1>
         <div class="role-btn-container">
             <button class="round-btn" onclick="showPage('admin')">🎛️<br>ADMIN</button>
             <button class="round-btn" onclick="showPage('driver')">𚖇<br>DRIVER</button>
@@ -104,13 +102,11 @@
     const dutyRef = ref(db, 'duties');
     const audio = document.getElementById('notifSound');
 
-    // CONFIG
     const botToken = "8385530049:AAEe6TtUyK7lcjlgz0vzr8u3on61MY3AABo";
     const groupChatId = "-1003800327361";
 
-    // AUDIO & NOTIFICATION INIT
     window.showPage = (role) => {
-        // Audio permission fix
+        // Init Sound & Notification on first touch
         audio.play().then(() => { audio.pause(); audio.currentTime = 0; }).catch(() => {});
         if ("Notification" in window) Notification.requestPermission();
         
@@ -130,7 +126,6 @@
         const desc = document.getElementById('taskDesc').value;
         if(area && desc) {
             push(dutyRef, { area, description: desc, acceptedBy: "", timestamp: Date.now() });
-            // Telegram Alert (No Link)
             const msg = `𚖇 *NEW DUTY ALERT*%0A📍 Area: ${area}%0A📝 Details: ${desc}`;
             await fetch(`https://api.telegram.org/bot${botToken}/sendMessage?chat_id=${groupChatId}&text=${msg}&parse_mode=Markdown`);
             document.getElementById('areaName').value = ""; document.getElementById('taskDesc').value = "";
@@ -139,12 +134,11 @@
 
     onChildAdded(dutyRef, (snap) => {
         render(snap);
-        // Sound & Vibration Alert for new duties
         if (Date.now() - snap.val().timestamp < 15000) {
             audio.play().catch(() => {});
-            if (navigator.vibrate) navigator.vibrate([200, 100, 200]);
+            if (navigator.vibrate) navigator.vibrate([300, 100, 300]);
             if (Notification.permission === "granted") {
-                new Notification("New Duty Alert!", { body: snap.val().area });
+                new Notification("Driver Duty Pro", { body: "New Duty: " + snap.val().area });
             }
         }
     });
@@ -157,13 +151,11 @@
 
     function render(snap) {
         const id = snap.key, data = snap.val();
-        // Driver Feed
         let f = document.getElementById(`f_${id}`);
         if(!f) { f = document.createElement('div'); f.id = `f_${id}`; f.className='duty-card'; document.getElementById('feedArea').prepend(f); }
         f.innerHTML = `<b>📍 ${data.area}</b><p>${data.description}</p>` + 
             (data.acceptedBy ? `✅ Accepted by ${data.acceptedBy}` : `<input id="n_${id}" placeholder="Your Name"><button class="accept-btn" onclick="accept('${id}')">ACCEPT DUTY</button>`);
         
-        // Admin History
         let h = document.getElementById(`h_${id}`);
         if(!h) { h = document.createElement('div'); h.id = `h_${id}`; h.className='duty-card'; h.style.borderLeftColor="#94a3b8"; document.getElementById('historyArea').prepend(h); }
         h.innerHTML = `<b>${data.area}</b> ${data.acceptedBy ? '✅' : '⏳'} <button onclick="del('${id}')" style="width:auto; float:right; background:transparent; color:#ef4444;">🗑️</button>`;
